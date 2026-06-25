@@ -1,15 +1,23 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Landing } from '@/pages/Landing'
-import { MedicoPlaceholder } from '@/pages/MedicoPlaceholder'
 import { PacientePlaceholder } from '@/pages/PacientePlaceholder'
+import { MedicoLayout } from '@/components/medico/MedicoLayout'
+import { Dashboard } from '@/pages/medico/Dashboard'
+import {
+  NuevaSolicitudPlaceholder,
+  ListaEsperaPlaceholder,
+} from '@/pages/medico/PaginasPlaceholder'
 
 /**
  * Definición de rutas de la aplicación.
  *
- * Estado actual (Iteración 2):
- *   /            → Landing (selector de rol)
- *   /medico      → Placeholder (se reemplaza en Iteración 3)
- *   /paciente    → Placeholder (se reemplaza en Iteración 6)
+ * Estado actual (Iteración 3):
+ *   /                       → Landing (selector de rol)
+ *   /medico                 → MedicoLayout
+ *     ├─ /                  → Dashboard
+ *     ├─ /registrar         → Placeholder (Iteración 4)
+ *     └─ /lista             → Placeholder (Iteración 5)
+ *   /paciente               → Placeholder (Iteración 6)
  *
  * Cualquier ruta desconocida redirige al inicio.
  */
@@ -17,9 +25,17 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/medico/*" element={<MedicoPlaceholder />} />
+
+      {/* Rutas anidadas del médico */}
+      <Route path="/medico" element={<MedicoLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="registrar" element={<NuevaSolicitudPlaceholder />} />
+        <Route path="lista" element={<ListaEsperaPlaceholder />} />
+      </Route>
+
       <Route path="/paciente/*" element={<PacientePlaceholder />} />
-      {/* Catch-all: cualquier ruta no definida vuelve al landing */}
+
+      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
