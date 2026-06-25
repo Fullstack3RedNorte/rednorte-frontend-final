@@ -34,16 +34,6 @@ export function PaginaPlaceholder({
   )
 }
 
-export function NuevaSolicitudPlaceholder() {
-  return (
-    <PaginaPlaceholder
-      titulo="Nueva solicitud"
-      descripcion="Registrar una nueva solicitud de atención médica."
-      iteracion="Iteración 4"
-    />
-  )
-}
-
 export function ListaEsperaPlaceholder() {
   return (
     <PaginaPlaceholder

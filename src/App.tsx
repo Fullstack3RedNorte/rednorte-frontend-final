@@ -3,39 +3,33 @@ import { Landing } from '@/pages/Landing'
 import { PacientePlaceholder } from '@/pages/PacientePlaceholder'
 import { MedicoLayout } from '@/components/medico/MedicoLayout'
 import { Dashboard } from '@/pages/medico/Dashboard'
-import {
-  NuevaSolicitudPlaceholder,
-  ListaEsperaPlaceholder,
-} from '@/pages/medico/PaginasPlaceholder'
+import { NuevaSolicitud } from '@/pages/medico/NuevaSolicitud'
+import { ListaEsperaPlaceholder } from '@/pages/medico/PaginasPlaceholder'
 
 /**
  * Definición de rutas de la aplicación.
  *
- * Estado actual (Iteración 3):
+ * Estado actual (Iteración 4):
  *   /                       → Landing (selector de rol)
  *   /medico                 → MedicoLayout
  *     ├─ /                  → Dashboard
- *     ├─ /registrar         → Placeholder (Iteración 4)
+ *     ├─ /registrar         → NuevaSolicitud (HU-01)
  *     └─ /lista             → Placeholder (Iteración 5)
  *   /paciente               → Placeholder (Iteración 6)
- *
- * Cualquier ruta desconocida redirige al inicio.
  */
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
 
-      {/* Rutas anidadas del médico */}
       <Route path="/medico" element={<MedicoLayout />}>
         <Route index element={<Dashboard />} />
-        <Route path="registrar" element={<NuevaSolicitudPlaceholder />} />
+        <Route path="registrar" element={<NuevaSolicitud />} />
         <Route path="lista" element={<ListaEsperaPlaceholder />} />
       </Route>
 
       <Route path="/paciente/*" element={<PacientePlaceholder />} />
 
-      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
