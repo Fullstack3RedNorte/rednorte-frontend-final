@@ -1,14 +1,27 @@
-import { Button } from '@/components/ui/button'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { Landing } from '@/pages/Landing'
+import { MedicoPlaceholder } from '@/pages/MedicoPlaceholder'
+import { PacientePlaceholder } from '@/pages/PacientePlaceholder'
 
+/**
+ * Definición de rutas de la aplicación.
+ *
+ * Estado actual (Iteración 2):
+ *   /            → Landing (selector de rol)
+ *   /medico      → Placeholder (se reemplaza en Iteración 3)
+ *   /paciente    → Placeholder (se reemplaza en Iteración 6)
+ *
+ * Cualquier ruta desconocida redirige al inicio.
+ */
 function App() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-primary-700">RedNorte</h1>
-        <p className="text-slate-600">Plataforma de gestión de listas de espera</p>
-        <Button>Hola desde shadcn/ui</Button>
-      </div>
-    </div>
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/medico/*" element={<MedicoPlaceholder />} />
+      <Route path="/paciente/*" element={<PacientePlaceholder />} />
+      {/* Catch-all: cualquier ruta no definida vuelve al landing */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
