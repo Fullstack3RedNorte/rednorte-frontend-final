@@ -1,5 +1,6 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { Landing } from '@/pages/Landing'
+import { NotFound } from '@/pages/NotFound'
 import { MedicoLayout } from '@/components/medico/MedicoLayout'
 import { Dashboard } from '@/pages/medico/Dashboard'
 import { NuevaSolicitud } from '@/pages/medico/NuevaSolicitud'
@@ -8,9 +9,8 @@ import { PacienteLogin } from '@/pages/paciente/PacienteLogin'
 import { MisSolicitudes } from '@/pages/paciente/MisSolicitudes'
 
 /**
- * Definición de rutas de la aplicación.
+ * Definición de rutas de la aplicación (versión final).
  *
- * Estado actual (Iteración 6):
  *   /                              → Landing
  *   /medico                        → MedicoLayout
  *     ├─ /                         → Dashboard
@@ -18,9 +18,7 @@ import { MisSolicitudes } from '@/pages/paciente/MisSolicitudes'
  *     └─ /lista                    → ListaEspera
  *   /paciente                      → PacienteLogin
  *   /paciente/mis-solicitudes      → MisSolicitudes
- *
- * Las 5 HUs implementadas en el front de pruebas ahora tienen
- * vistas finales orientadas al usuario.
+ *   *                              → NotFound (404)
  */
 function App() {
   return (
@@ -38,8 +36,8 @@ function App() {
       <Route path="/paciente" element={<PacienteLogin />} />
       <Route path="/paciente/mis-solicitudes" element={<MisSolicitudes />} />
 
-      {/* Catch-all */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* 404 */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }
