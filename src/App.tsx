@@ -4,17 +4,17 @@ import { PacientePlaceholder } from '@/pages/PacientePlaceholder'
 import { MedicoLayout } from '@/components/medico/MedicoLayout'
 import { Dashboard } from '@/pages/medico/Dashboard'
 import { NuevaSolicitud } from '@/pages/medico/NuevaSolicitud'
-import { ListaEsperaPlaceholder } from '@/pages/medico/PaginasPlaceholder'
+import { ListaEspera } from '@/pages/medico/ListaEspera'
 
 /**
  * Definición de rutas de la aplicación.
  *
- * Estado actual (Iteración 4):
- *   /                       → Landing (selector de rol)
+ * Estado actual (Iteración 5):
+ *   /                       → Landing
  *   /medico                 → MedicoLayout
  *     ├─ /                  → Dashboard
  *     ├─ /registrar         → NuevaSolicitud (HU-01)
- *     └─ /lista             → Placeholder (Iteración 5)
+ *     └─ /lista             → ListaEspera (HU-02 + HU-03 combinadas)
  *   /paciente               → Placeholder (Iteración 6)
  */
 function App() {
@@ -25,7 +25,7 @@ function App() {
       <Route path="/medico" element={<MedicoLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="registrar" element={<NuevaSolicitud />} />
-        <Route path="lista" element={<ListaEsperaPlaceholder />} />
+        <Route path="lista" element={<ListaEspera />} />
       </Route>
 
       <Route path="/paciente/*" element={<PacientePlaceholder />} />
