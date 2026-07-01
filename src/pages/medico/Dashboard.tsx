@@ -1,80 +1,96 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity,
   AlertCircle,
+  AlertTriangle,
   Calendar,
   CheckCircle2,
   Clock,
-  Flame,
+  Hourglass,
   ListChecks,
   PlusCircle,
+  RefreshCw,
+  Sparkles,
+  Users,
 } from 'lucide-react'
-import { listarSolicitudes } from '@/api/solicitudes'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import { obtenerKpis } from '@/api/kpis'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { KpiCard } from '@/components/medico/KpiCard'
-import type { EstadoSolicitud, SolicitudResponse } from '@/types/api'
+import { DashboardFiltros } from '@/components/medico/DashboardFiltros'
+import type { KpiFiltros, KpisResponse } from '@/types/api-kpis'
 
 /**
- * Dashboard del médico.
+ * Dashboard del médico — con filtros por especialidad y rango de fechas.
  *
- * Estrategia:
- *  - Hace una sola llamada GET /solicitudes con size=200
- *  - Calcula KPIs en cliente filtrando por estado y prioridad
- *  - Muestra las últimas 5 solicitudes por fechaRegistro
+ * KPIs "snapshot" (estado actual) — solo se ven afectados por el
+ * filtro de especialidad:
+ *   1. Total activas   (EN_ESPERA + CITADO)
+ *   2. En espera
+ *   3. Citadas
+ *   4. Backlog > 30 días
  *
- * Estados:
- *  - loading: skeleton en todas las tarjetas
- *  - error:   mensaje de error con retry
- *  - éxito:   tarjetas con valores calculados
+ * KPIs "en rango" — dependen del rango de fechas y del filtro:
+ *   5. Atendidas en el rango
+ *   6. Nuevas en el rango
+ *   7. Tiempo promedio de espera → CITADO (días)
+ *   8. Tasa de ausentismo (%)
+ *
+ * Gráficos:
+ *   - Top 8 especialidades por solicitudes activas
+ *   - Distribución por prioridad P1–P4
  */
 export function Dashboard() {
-  const [solicitudes, setSolicitudes] = useState<SolicitudResponse[] | null>(null)
+  const [kpis, setKpis] = useState<KpisResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
+  const [filtros, setFiltros] = useState<KpiFiltros>({})
 
-  async function cargar() {
+  const cargar = useCallback(async (f: KpiFiltros) => {
     setCargando(true)
     setError(null)
-    const res = await listarSolicitudes({ page: 0, size: 200 })
+    const res = await obtenerKpis(f)
     if (res.ok) {
-      setSolicitudes(res.data.content)
+      setKpis(res.data)
     } else {
       setError(res.error)
     }
     setCargando(false)
-  }
-
-  useEffect(() => {
-    cargar()
   }, [])
 
-  // KPIs calculados en cliente
-  const kpis = useMemo(() => calcularKpis(solicitudes), [solicitudes])
-
-  // Últimas 5 solicitudes ordenadas por fechaRegistro descendente
-  const ultimas = useMemo(() => {
-    if (!solicitudes) return []
-    return [...solicitudes]
-      .sort(
-        (a, b) =>
-          new Date(b.fechaRegistro).getTime() -
-          new Date(a.fechaRegistro).getTime()
-      )
-      .slice(0, 5)
-  }, [solicitudes])
+  // Recargar cuando cambian los filtros
+  useEffect(() => {
+    cargar(filtros)
+  }, [filtros, cargar])
 
   return (
     <div>
       {/* Encabezado */}
-      <header className="mb-8">
+      <header className="mb-4">
         <h1 className="text-3xl font-bold text-slate-900 mb-1">Dashboard</h1>
         <p className="text-slate-600">
-          Resumen general de la lista de espera y solicitudes recientes.
+          Resumen operacional de la lista de espera. Ajusta los filtros para
+          explorar por especialidad o rango de fechas.
         </p>
       </header>
+
+      {/* Barra de filtros */}
+      <DashboardFiltros onChange={setFiltros} />
 
       {/* Mensaje de error */}
       {error && (
@@ -83,13 +99,13 @@ export function Dashboard() {
             <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
             <div className="flex-1">
               <h3 className="font-semibold text-red-900 mb-1">
-                No se pudieron cargar los datos
+                No se pudieron cargar los KPIs
               </h3>
               <p className="text-sm text-red-700 mb-3">{error}</p>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={cargar}
+                onClick={() => cargar(filtros)}
                 className="border-red-300 text-red-700 hover:bg-red-100"
               >
                 Reintentar
@@ -99,76 +115,129 @@ export function Dashboard() {
         </Card>
       )}
 
-      {/* KPIs por estado */}
+      {/* Fila 1: snapshot */}
       <section className="mb-6">
         <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-          Por estado
+          Estado actual
+          {kpis?.filtroAplicado.especialidadId != null && (
+            <span className="ml-2 text-slate-400 normal-case font-normal">
+              · especialidad filtrada
+            </span>
+          )}
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <KpiCard
+            label="Activas"
+            value={kpis?.totalActivas ?? null}
+            icon={Users}
+            accentColor="text-slate-700"
+            loading={cargando}
+            hint="EN_ESPERA + CITADO"
+          />
           <KpiCard
             label="En espera"
-            value={kpis.enEspera}
+            value={kpis?.enEspera ?? null}
             icon={Clock}
             accentColor="text-blue-600"
             loading={cargando}
-            hint={kpis.enEsperaHoy != null ? `${kpis.enEsperaHoy} nueva${kpis.enEsperaHoy !== 1 ? 's' : ''} hoy` : undefined}
           />
           <KpiCard
             label="Citadas"
-            value={kpis.citadas}
+            value={kpis?.citadas ?? null}
             icon={Calendar}
             accentColor="text-indigo-600"
             loading={cargando}
           />
           <KpiCard
+            label="Backlog > 30d"
+            value={kpis?.backlogMas30Dias ?? null}
+            icon={AlertTriangle}
+            accentColor="text-red-600"
+            loading={cargando}
+            hint="en espera sin citar"
+          />
+        </div>
+      </section>
+
+      {/* Fila 2: en rango */}
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+          En el rango seleccionado
+          {kpis?.filtroAplicado && (
+            <span className="ml-2 text-slate-400 normal-case font-normal font-mono">
+              {kpis.filtroAplicado.fechaDesde} → {kpis.filtroAplicado.fechaHasta}
+            </span>
+          )}
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <KpiCard
             label="Atendidas"
-            value={kpis.atendidas}
+            value={kpis?.atendidasEnRango ?? null}
             icon={CheckCircle2}
             accentColor="text-green-600"
             loading={cargando}
           />
-        </div>
-      </section>
-
-      {/* KPIs por prioridad */}
-      <section className="mb-8">
-        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-          Solicitudes activas por prioridad
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard
-            label="GES (P1)"
-            value={kpis.prioridad1}
-            icon={Flame}
-            accentColor="text-red-600"
+            label="Nuevas"
+            value={kpis?.nuevasEnRango ?? null}
+            icon={Sparkles}
+            accentColor="text-emerald-600"
             loading={cargando}
           />
           <KpiCard
-            label="Urgente (P2)"
-            value={kpis.prioridad2}
+            label="T. espera prom."
+            value={kpis?.tiempoPromedioEsperaDias ?? null}
+            icon={Hourglass}
+            accentColor="text-cyan-600"
+            loading={cargando}
+            hint="días hasta ser citado"
+          />
+          <KpiCard
+            label="Ausentismo"
+            value={kpis?.tasaAusentismo ?? null}
             icon={Activity}
             accentColor="text-orange-600"
             loading={cargando}
-          />
-          <KpiCard
-            label="Vulnerable (P3)"
-            value={kpis.prioridad3}
-            icon={Activity}
-            accentColor="text-amber-600"
-            loading={cargando}
-          />
-          <KpiCard
-            label="Electiva (P4)"
-            value={kpis.prioridad4}
-            icon={Activity}
-            accentColor="text-slate-500"
-            loading={cargando}
+            hint="% en el rango"
           />
         </div>
       </section>
 
+      {/* Gráficos */}
+      <section className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-5">
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Solicitudes activas por especialidad
+            </h3>
+            <p className="text-xs text-slate-500">Top 8 — EN_ESPERA + CITADO</p>
+          </div>
+          {cargando ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <GraficoEspecialidades data={kpis?.porEspecialidad ?? []} />
+          )}
+        </Card>
+
+        <Card className="p-5">
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Distribución por prioridad
+            </h3>
+            <p className="text-xs text-slate-500">
+              Solicitudes activas segmentadas por criterio de urgencia
+            </p>
+          </div>
+          {cargando ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <GraficoPrioridades data={kpis?.porPrioridad} />
+          )}
+        </Card>
+      </section>
+
       {/* Accesos directos */}
-      <section className="mb-8 flex flex-wrap gap-3">
+      <section className="flex flex-wrap gap-3">
         <Button asChild className="bg-primary-600 hover:bg-primary-700">
           <Link to="/medico/registrar">
             <PlusCircle className="w-4 h-4 mr-2" />
@@ -181,163 +250,119 @@ export function Dashboard() {
             Ver lista de espera completa
           </Link>
         </Button>
-      </section>
-
-      {/* Últimas solicitudes */}
-      <section>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">
-          Últimas solicitudes registradas
-        </h2>
-        <Card className="p-0 overflow-hidden">
-          {cargando ? (
-            <SkeletonTabla />
-          ) : ultimas.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500">
-              No hay solicitudes registradas todavía.
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-600">
-                <tr>
-                  <th className="px-4 py-2 text-left">ID</th>
-                  <th className="px-4 py-2 text-left">Paciente</th>
-                  <th className="px-4 py-2 text-left">Especialidad</th>
-                  <th className="px-4 py-2 text-left">Estado</th>
-                  <th className="px-4 py-2 text-left">Registrada</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ultimas.map((sol) => (
-                  <tr
-                    key={sol.id}
-                    className="border-t border-slate-100 hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono text-slate-500">#{sol.id}</td>
-                    <td className="px-4 py-3 font-mono">{sol.rutPaciente}</td>
-                    <td className="px-4 py-3">{sol.especialidad}</td>
-                    <td className="px-4 py-3">
-                      <BadgeEstado estado={sol.estado} />
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500">
-                      {tiempoTranscurrido(sol.fechaRegistro)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Card>
+        <Button
+          variant="outline"
+          onClick={() => cargar(filtros)}
+          disabled={cargando}
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Recargar
+        </Button>
       </section>
     </div>
   )
 }
 
 // ──────────────────────────────────────────────────────────────
-// Cálculo de KPIs
+// Gráficos
 // ──────────────────────────────────────────────────────────────
 
-interface Kpis {
-  enEspera: number | null
-  enEsperaHoy: number | null
-  citadas: number | null
-  atendidas: number | null
-  prioridad1: number | null
-  prioridad2: number | null
-  prioridad3: number | null
-  prioridad4: number | null
-}
-
-function calcularKpis(solicitudes: SolicitudResponse[] | null): Kpis {
-  if (!solicitudes) {
-    return {
-      enEspera: null,
-      enEsperaHoy: null,
-      citadas: null,
-      atendidas: null,
-      prioridad1: null,
-      prioridad2: null,
-      prioridad3: null,
-      prioridad4: null,
-    }
-  }
-
-  const hoyInicio = new Date()
-  hoyInicio.setHours(0, 0, 0, 0)
-
-  // Por estado
-  const enEspera = solicitudes.filter((s) => s.estado === 'EN_ESPERA').length
-  const enEsperaHoy = solicitudes.filter(
-    (s) =>
-      s.estado === 'EN_ESPERA' &&
-      new Date(s.fechaRegistro).getTime() >= hoyInicio.getTime()
-  ).length
-  const citadas = solicitudes.filter((s) => s.estado === 'CITADO').length
-  const atendidas = solicitudes.filter((s) => s.estado === 'ATENDIDO').length
-
-  // Por prioridad — solo solicitudes activas (no terminales)
-  const estadosActivos: EstadoSolicitud[] = [
-    'EN_ESPERA',
-    'CITADO',
-    'ATENDIDO',
-    'AUSENTE',
-  ]
-  const activas = solicitudes.filter((s) =>
-    estadosActivos.includes(s.estado)
-  )
-
-  return {
-    enEspera,
-    enEsperaHoy,
-    citadas,
-    atendidas,
-    prioridad1: activas.filter((s) => s.prioridad === 1).length,
-    prioridad2: activas.filter((s) => s.prioridad === 2).length,
-    prioridad3: activas.filter((s) => s.prioridad === 3).length,
-    prioridad4: activas.filter((s) => s.prioridad === 4).length,
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Helpers visuales
-// ──────────────────────────────────────────────────────────────
-
-function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
-  const colores: Record<EstadoSolicitud, string> = {
-    EN_ESPERA: 'bg-blue-100 text-blue-800 border-blue-200',
-    CITADO: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-    ATENDIDO: 'bg-green-100 text-green-800 border-green-200',
-    AUSENTE: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    CERRADO: 'bg-slate-200 text-slate-700 border-slate-300',
-    ANULADO: 'bg-red-100 text-red-800 border-red-200',
-    DERIVADO: 'bg-purple-100 text-purple-800 border-purple-200',
-    VENCIDO: 'bg-gray-100 text-gray-700 border-gray-200',
+function GraficoEspecialidades({
+  data,
+}: {
+  data: { especialidad: string; total: number }[]
+}) {
+  const top = data.slice(0, 8)
+  if (top.length === 0) {
+    return (
+      <div className="h-64 flex items-center justify-center text-sm text-slate-400">
+        Sin datos para el filtro seleccionado
+      </div>
+    )
   }
   return (
-    <span
-      className={`inline-block px-2 py-0.5 rounded border text-[10px] font-semibold ${colores[estado]}`}
-    >
-      {estado}
-    </span>
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart data={top} layout="vertical" margin={{ left: 10, right: 20 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis type="number" tick={{ fontSize: 11 }} />
+        <YAxis
+          type="category"
+          dataKey="especialidad"
+          width={140}
+          tick={{ fontSize: 11 }}
+        />
+        <Tooltip
+          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+          formatter={(v: number) => [`${v} solicitudes`, 'Activas']}
+        />
+        <Bar dataKey="total" fill="#2563eb" radius={[0, 4, 4, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
   )
 }
 
-function tiempoTranscurrido(iso: string): string {
-  const fecha = new Date(iso)
-  const ahora = new Date()
-  const minutos = Math.floor((ahora.getTime() - fecha.getTime()) / 60000)
-  if (minutos < 60) return `hace ${minutos} min`
-  const horas = Math.floor(minutos / 60)
-  if (horas < 24) return `hace ${horas}h`
-  const dias = Math.floor(horas / 24)
-  return `hace ${dias}d`
+const COLORES_PRIORIDAD: Record<string, string> = {
+  'GES (P1)': '#dc2626',
+  'Urgente (P2)': '#ea580c',
+  'Vulnerable (P3)': '#d97706',
+  'Electiva (P4)': '#64748b',
 }
 
-function SkeletonTabla() {
+function GraficoPrioridades({
+  data,
+}: {
+  data?: { p1: number; p2: number; p3: number; p4: number }
+}) {
+  if (!data) {
+    return (
+      <div className="h-64 flex items-center justify-center text-sm text-slate-400">
+        Sin datos para mostrar
+      </div>
+    )
+  }
+  const chart = [
+    { name: 'GES (P1)', value: data.p1 },
+    { name: 'Urgente (P2)', value: data.p2 },
+    { name: 'Vulnerable (P3)', value: data.p3 },
+    { name: 'Electiva (P4)', value: data.p4 },
+  ].filter((d) => d.value > 0)
+
+  if (chart.length === 0) {
+    return (
+      <div className="h-64 flex items-center justify-center text-sm text-slate-400">
+        Sin solicitudes activas
+      </div>
+    )
+  }
+
   return (
-    <div className="p-4 space-y-3">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Skeleton key={i} className="h-10 w-full" />
-      ))}
-    </div>
+    <ResponsiveContainer width="100%" height={260}>
+      <PieChart>
+        <Pie
+          data={chart}
+          dataKey="value"
+          nameKey="name"
+          innerRadius={55}
+          outerRadius={90}
+          paddingAngle={2}
+        >
+          {chart.map((entry) => (
+            <Cell
+              key={entry.name}
+              fill={COLORES_PRIORIDAD[entry.name] ?? '#94a3b8'}
+            />
+          ))}
+        </Pie>
+        <Tooltip
+          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+          formatter={(v: number) => [`${v} solicitudes`, 'Total']}
+        />
+        <Legend
+          verticalAlign="bottom"
+          height={30}
+          wrapperStyle={{ fontSize: 11 }}
+        />
+      </PieChart>
+    </ResponsiveContainer>
   )
 }
